@@ -8,6 +8,7 @@ import { Link } from 'expo-router'
 import * as z from "zod";
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Controller, useForm, type SubmitHandler } from 'react-hook-form';
+import AsyncStorage from '@react-native-async-storage/async-storage'
 
 
 
@@ -36,6 +37,12 @@ const signupSchema = z
       .max(30, "Last name cannot exceed 30 characters")
       .trim()
       .regex(/^[A-Za-z]+$/, "Last name should contain only letters"),
+
+    phonenumber: z
+      .string()
+      .min(10, "Phone number must be 10 digits")
+      .max(10, "Phone number must be 10 digits")
+      .regex(/^[0-9]+$/, "Phone number must contain only numbers"),
 
     email: z
       .string()
@@ -81,9 +88,41 @@ const Signup = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
-  const submitForm: SubmitHandler<SignupInputs> = (data) => {
-    console.log(data);
+  const navigateToLoginScreen = async (data: { username: string; firstname: string; lastname: string; phonenumber: string; email: string; password: string; confirmPassword: string }) => {
+    try {
+      const payload = {
+        username: data.username,
+        first_name: data.firstname,
+        last_name: data.lastname,
+        email: data.email,
+        password: data.password,
+        phone_number: data.phonenumber,
+
+      }
+      const response = await fetch('http://192.168.0.236:9896/auth/v1/signup', {
+
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify(payload)
+      });
+      const result = await response.json();
+      console.log(result);
+      await AsyncStorage.setItem('accessToken', result.accessToken);
+      await AsyncStorage.setItem('token', result.token);
+    } catch (error) {
+      console.log('Signup error:', error);
+    }
   }
+
+
+  // const submitForm: SubmitHandler<SignupInputs> = (data) => {
+  //   console.log(data);
+  //   navigateToLoginScreen(data);
+  // }
 
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
@@ -186,6 +225,27 @@ const Signup = () => {
                 </CustomText>
               )}
 
+              {/* Phonenumber */}
+              <Controller
+                control={control}
+                name="phonenumber"
+                render={({ field: { onChange, onBlur, value } }) => (
+                  <TextInput
+                    placeholder='PhoneNumber'
+                    style={styles.textInput}
+                    value={value}
+                    onBlur={onBlur}
+                    onChangeText={onChange}
+                    placeholderTextColor="#888"
+                  />
+                )}
+              />
+              {errors.phonenumber && (
+                <CustomText style={styles.error}>
+                  {errors.phonenumber.message}
+                </CustomText>
+              )}
+
               {/*password */}
               <View style={styles.passwordContainer}>
                 <Controller
@@ -265,7 +325,7 @@ const Signup = () => {
             </CustomBox>
 
 
-            <TouchableOpacity style={styles.button} onPress={handleSubmit(submitForm)} activeOpacity={0.8}  >
+            <TouchableOpacity style={styles.button} onPress={handleSubmit(navigateToLoginScreen)} activeOpacity={0.8}  >
               <CustomBox style={DarkButtonBOX}>
                 <CustomText style={{ textAlign: "center", color: 'white' }}>Register</CustomText>
               </CustomBox>

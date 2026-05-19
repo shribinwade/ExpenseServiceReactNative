@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Keyboard, TouchableWithoutFeedback, KeyboardAvoidingView, Platform, ScrollView } from 'react-native'
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Link, useRouter } from 'expo-router'
 import CustomBox from '@/components/CustomComponents/CustomBox'
 import CustomText from '@/components/CustomComponents/CustomText'
@@ -7,7 +7,7 @@ import Ionicons from '@expo/vector-icons/build/Ionicons'
 import * as z from "zod";
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Controller, useForm, type SubmitHandler } from 'react-hook-form';
-
+import AsyncStorage from '@react-native-async-storage/async-storage'
 
 
 const loginSchema = z.object({
@@ -33,11 +33,97 @@ type inputs = z.infer<typeof loginSchema>
 const Login = () => {
 
 
-  const [showPassword, setShowPassword] = useState(false)
-
+  const [showPassword, setShowPassword] = useState(false);
+  const [loggedIn, setLoggedIn] = useState(false);
 
   const router = useRouter();
 
+  const isLoggedIn = async () => {
+    console.log(
+      "enterd"
+    );
+
+    try {
+      const accessToken = await AsyncStorage.getItem('accessToken');
+      console.log(accessToken);
+      
+      if (!accessToken) {
+        return false;
+      }
+
+      const response = await fetch('http://192.168.0.236:9895/auth/v1/ping', {
+        method: 'GET',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      console.log('Ping status:', response.status);
+
+      return response.ok;
+    } catch (error) {
+      console.log('isLoggedIn error:', error);
+      return false;
+    }
+  }
+
+  const refreshToken = async () => {
+    let refreshToken = await AsyncStorage.getItem('token');
+    const accessToken = await AsyncStorage.getItem('accessToken');
+
+    console.log(refreshToken);
+    console.log(accessToken);
+
+
+    const response = await fetch('http://192.168.0.236:9895/auth/v1/refreshToken', {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
+      },
+      body: JSON.stringify({
+        token: refreshToken,
+      }),
+    });
+    if (response.ok) {
+      const data = await response.json();
+      await AsyncStorage.setItem('accessToken', data.accessToken);
+      await AsyncStorage.setItem('token', data.token);
+      const refreshToken = await AsyncStorage.getItem('accessToken');
+      const accessToken = await AsyncStorage.getItem('token');
+      console.log(
+        'Tokens after refresh are ' + refreshToken + ' ' + accessToken
+      );
+
+    }
+    return response.ok;
+  }
+
+
+
+  useEffect(() => {
+    const handleLogin = async () => {
+      const loggedIn = await isLoggedIn();
+      setLoggedIn(loggedIn);
+      if (loggedIn) {
+        router.navigate('/Home')
+      } 
+      else {
+        const refreshed = await refreshToken();
+        if (refreshed) {
+          router.navigate('/Home')
+        } else {
+          console.log(refreshed);
+        }
+      }
+    }
+
+    handleLogin();
+
+  }, []);
 
   const onLogin = () => {
     router.navigate("/Signup")
