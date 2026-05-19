@@ -35,6 +35,8 @@ const Login = () => {
 
   const [showPassword, setShowPassword] = useState(false);
   const [loggedIn, setLoggedIn] = useState(false);
+  const [formLoggedIn, setformLoggedIn] = useState(false);
+
 
   const router = useRouter();
 
@@ -46,7 +48,7 @@ const Login = () => {
     try {
       const accessToken = await AsyncStorage.getItem('accessToken');
       console.log(accessToken);
-      
+
       if (!accessToken) {
         return false;
       }
@@ -110,7 +112,7 @@ const Login = () => {
       setLoggedIn(loggedIn);
       if (loggedIn) {
         router.navigate('/Home')
-      } 
+      }
       else {
         const refreshed = await refreshToken();
         if (refreshed) {
@@ -125,8 +127,36 @@ const Login = () => {
 
   }, []);
 
+
+
   const onLogin = () => {
     router.navigate("/Signup")
+  }
+
+  const gotoHomeWithLogin = async (data: { username: string; password: string }) => {
+    try {
+      const payload = {
+        username: data.username,
+        password: data.password
+      }
+      const response = await fetch('http://192.168.0.236:9895/auth/v1/login', {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify(payload)
+      });
+      const result = await response.json();
+      console.log(result);
+      await AsyncStorage.setItem('accessToken', result.accessToken);
+      await AsyncStorage.setItem('token', result.token);
+      return response.ok
+    } catch (error) {
+      console.log('Signup error:', error);
+      return false;
+    }
   }
 
 
@@ -140,9 +170,16 @@ const Login = () => {
   );
 
 
-  const submitForm: SubmitHandler<inputs> = (data) => {
-    console.log(data);
-  }
+  const submitForm: SubmitHandler<inputs> = async (data) => {
+    const loggedIn = await gotoHomeWithLogin(data);
+    setformLoggedIn(loggedIn);
+
+    if (loggedIn) {
+      router.navigate('/Home');
+    } else {
+      console.log('Login failed');
+    }
+  };
 
 
 
